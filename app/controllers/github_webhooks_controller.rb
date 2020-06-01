@@ -20,7 +20,8 @@ class GithubWebhooksController < ActionController::Base
     # basic variables
     base_url = "https://172.19.101.227"
     auth_header = "Basic YmFybmVzcnk6MTIzRGVtbw=="  # barnesry:123Demo
-    addressfile = '/home/barnesry/github/firewall-automation-demo/addresses.xml'
+    git_dir = File.join(ENV['HOME'], '/github/firewall-automation-demo')
+    addressfile = File.join(git_dir, 'addresses.xml')
     # labuser = "barnesry"
     # labpass = "123Demo"
     # sd_ip = '172.19.101.227'
@@ -38,20 +39,9 @@ class GithubWebhooksController < ActionController::Base
 
     # get url to refresh from webhook input
     repo_url = payload["repository"]["url"]
-    git_dir = "/home/barnesry/github/firewall-automation-demo"
+
     
-    # blindly perform a pull for the demo w/o any checks
-    puts "Performing a GIT PULL for #{repo_url} to refresh..."
-    g = Git.open(git_dir)
-    g.pull
-    
-    # display the diff to the console
-    puts "-"*30
-    puts "GIT DIFF"
-    puts "-"*30
-    puts "#{g.diff("HEAD^", "HEAD").patch}"
-    puts
-    puts
+    git_refresh(git_dir, repo_url)
 
 
     # open our refreshed source file
@@ -131,8 +121,9 @@ class GithubWebhooksController < ActionController::Base
           
           if response.code == "200"
               puts "UPDATE SUCCESSFUL! Reponse Code : #{response.code}"
+              puts
           else
-              puts "Something went wrong with our update"
+              puts "ERROR : Something went wrong with our update"
               # need to perform proper error handling here
           end
 
@@ -152,6 +143,9 @@ class GithubWebhooksController < ActionController::Base
           # Rails shortcut to convert from XML to JSON
           body = JSON.generate(Hash.from_xml(address.to_s))
           
+          puts "NEED TO CREATE A NEW OBJECT for #{body}..."
+          puts
+
           create_address_object(https, base_url, body)
 
       end
@@ -168,6 +162,21 @@ class GithubWebhooksController < ActionController::Base
 
   def webhook_secret(payload)
     ENV['GITHUB_WEBHOOK_SECRET']
+  end
+
+  def git_refresh(git_path, repository_url)
+      # blindly perform a pull for the demo w/o any checks
+      puts "Performing a GIT PULL for #{repository_url} to refresh..."
+      g = Git.open(git_path)
+      g.pull
+      
+      # display the diff to the console
+      puts "-"*30
+      puts "GIT DIFF"
+      puts "-"*30
+      puts "#{g.diff("HEAD^", "HEAD").patch}"
+      puts
+      puts
   end
 
   #########################
@@ -217,12 +226,14 @@ class GithubWebhooksController < ActionController::Base
     request["Content-Type"] = "application/json"
     request["Access-Type"] = "application/json"
 
-    request.body = JSON.generate(body)
+    request.body = body
     
-    puts "Creating new entry for #{body} at #{url.to_s}"
+    puts
+    puts "Creating new entry for #{request.body} at #{url.to_s}"
+    puts
 
     response = https.request(request)
-    puts response.read_body
+    #puts response.read_body
 
   end
 end
